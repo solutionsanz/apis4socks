@@ -1,0 +1,8 @@
+#!/bin/bash
+#microservices..
+  #weavescope..
+  #kubectl apply -f scope.yaml
+  #weavesocks..
+  git clone --quiet https://github.com/microservices-demo/microservices-demo /tmp/cncf/microservices-demo
+  kubectl create namespace sock-shop
+  kubectl create -f /tmp/cncf/microservices-demo/deploy/kubernetes/complete-demo.yaml
