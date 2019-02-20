@@ -1,0 +1,8 @@
+#!/bin/bash
+#microservices..
+  #weavescope..
+  #kubectl delete -f scope.yaml
+  #weavesocks..
+  kubectl delete -f /tmp/cncf/microservices-demo/deploy/kubernetes/complete-demo.yaml
+  kubectl delete namespace sock-shop
+  
