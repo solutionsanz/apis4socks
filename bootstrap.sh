@@ -31,10 +31,10 @@ OKE_OCID=$4
 REGION_SHORTNAME=$5
 
 
-    echo "##########################################################################"
-    echo "###################### Updating packages ##############################"
+    # echo "##########################################################################"
+    # echo "###################### Updating packages ##############################"
 
-    sudo apt-get update
+    # sudo apt-get update
 
     echo "##########################################################################"    
     echo "###################### Installing Git ##############################"
@@ -78,14 +78,6 @@ REGION_SHORTNAME=$5
     echo "##########################################################################"
     echo "############### Installing Kubectl for target OKE cluster ########################"
 
-    # Configuring kubectl under vagrant user:
-    sudo su vagrant
-
-    echo " ################## Installing OCI CLI:"
-    bash -c "$(curl -L https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh) --accept-all-defaults"
-    bash # Used to get oci cli available on this bash straightaway.
-
-
     echo " ################## Configuring .oci/config:"
     #    Interactive way: bash oci setup config
 
@@ -96,9 +88,39 @@ REGION_SHORTNAME=$5
     sed -i "s/@TENANCY_OCID@/${TENANCY_OCID}/g" /home/vagrant/.oci/config
     sed -i "s/@REGION_SHORTNAME@/${REGION_SHORTNAME}/g" /home/vagrant/.oci/config
 
+    # Since root is running this bootstrap, let's make sure it also has the main .oci/config file:
+    mkdir -p /root/.oci && cp /home/vagrant/.oci/config /root/.oci/config
+
+    echo " ################## Installing Go:"
+    
+    wget https://dl.google.com/go/go1.11.5.linux-amd64.tar.gz
+    tar -C /usr/local -xzf go1.11.5.linux-amd64.tar.gz    
+    echo "export PATH=$PATH:/usr/local/go/bin" >> /home/vagrant/.profile    
+    /usr/local/go/bin/go version
+
+    echo " ################## Downloading oke-go utility from CSenese github repo:"
+    git clone https://github.com/cameronsenese/oke-go.git
+    cd oke-go
+    
+    # Pulling dependencies:
+    /usr/local/go/bin/go get -u github.com/oracle/oci-go-sdk
+    /usr/local/go/bin/go get -u github.com/Jeffail/gabs
+    /usr/local/go/bin/go get -u gopkg.in/alecthomas/kingpin.v2
+
+    # Compiling utility oke-go code:
+    /usr/local/go/bin/go build oke-go.go
+
     echo " ################## Downloading kube config file for a particular oke cluster tenancy:"
-    mkdir -p /home/vagrant/.kube
-    oci ce cluster create-kubeconfig --cluster-id $OKE_OCID --file /home/vagrant/.kube/config --region $REGION_SHORTNAME
+
+    # Downloading kube config from a particular OKE cluster:
+    ./oke-go createOkeKubeconfig --clusterId=$OKE_OCID
+
+    if [ ! -f /home/vagrant/oke-go/.oke-go/kubeconfig ]; then
+        echo "Error while retrieving kube config. Verify and try again!"
+        exit 1
+    fi
+
+    mkdir -p /home/vagrant/.kube && cp /home/vagrant/oke-go/.oke-go/kubeconfig /home/vagrant/.kube/config
 
     echo " ################## Installing kubectl now that we've got the kube config file:"
     sudo apt-get update && sudo apt-get install -y apt-transport-https
@@ -110,6 +132,10 @@ REGION_SHORTNAME=$5
     sudo apt-get update
 
     sudo apt-get install kubectl
+
+    # Since root is running this bootstrap, let's make sure it also has the main .kube/config file:
+    mkdir -p /root/.kube && cp /home/vagrant/.kube/config /root/.kube/config
+
 
     echo " ################## Testing kubectl:"
     kubectl get nodes
